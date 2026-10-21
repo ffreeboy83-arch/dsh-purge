@@ -1,0 +1,57 @@
+name: Sync upstream
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"   # 每 6 小时自动拉一次
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/zhaoshihang/dsh-purge.git || true
+          git fetch --no-tags upstream master
+
+      - name: Fast-forward merge (skip if diverged)
+        id: merge
+        run: |
+          BEFORE=$(git rev-parse HEAD)
+          UP=$(git rev-parse upstream/master)
+          echo "before=$BEFORE upstream=$UP"
+          if [ "$BEFORE" = "$UP" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Already up to date."
+            exit 0
+          fi
+          if git merge-base --is-ancestor "$BEFORE" "$UP"; then
+            git merge --ff-only upstream/master
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Fast-forwarded $BEFORE -> $(git rev-parse HEAD)"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Sync skipped::Fork has local commits or diverged history; manual merge needed."
+          fi
+
+      - name: Push
+        if: steps.merge.outputs.changed == 'true'
+        run: git push origin master
