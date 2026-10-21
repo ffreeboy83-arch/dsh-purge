@@ -2,7 +2,7 @@ name: Sync upstream
 
 on:
   schedule:
-    - cron: "0 */6 * * *"   # 每 6 小时自动拉一次（UTC）
+    - cron: "51 20 * * *"   # TEMP schedule test
   workflow_dispatch:
 
 permissions:
