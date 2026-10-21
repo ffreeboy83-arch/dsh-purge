@@ -2,7 +2,7 @@ name: Sync upstream
 
 on:
   schedule:
-    - cron: "0 */6 * * *"   # 每 6 小时自动拉一次
+    - cron: "0 */6 * * *"   # 每 6 小时自动拉一次（UTC）
   workflow_dispatch:
 
 permissions:
@@ -27,31 +27,37 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Fetch upstream
+      - name: Fetch and merge upstream
+        id: merge
         run: |
           git remote add upstream https://github.com/zhaoshihang/dsh-purge.git || true
           git fetch --no-tags upstream master
-
-      - name: Fast-forward merge (skip if diverged)
-        id: merge
-        run: |
-          BEFORE=$(git rev-parse HEAD)
           UP=$(git rev-parse upstream/master)
-          echo "before=$BEFORE upstream=$UP"
-          if [ "$BEFORE" = "$UP" ]; then
+          echo "upstream=$UP head=$(git rev-parse HEAD)"
+          if git merge-base --is-ancestor "$UP" HEAD; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "Already up to date."
             exit 0
           fi
-          if git merge-base --is-ancestor "$BEFORE" "$UP"; then
-            git merge --ff-only upstream/master
+          if git merge --no-edit upstream/master; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "Fast-forwarded $BEFORE -> $(git rev-parse HEAD)"
+            echo "Merged upstream/$UP"
           else
+            git merge --abort || true
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "::warning title=Sync skipped::Fork has local commits or diverged history; manual merge needed."
+            echo "::error title=Sync conflict::Upstream conflicts with local commits. Manual merge required."
+            exit 1
           fi
 
       - name: Push
         if: steps.merge.outputs.changed == 'true'
         run: git push origin master
+
+      - name: Summary
+        run: |
+          {
+            echo "### Upstream sync"
+            echo "- upstream: \`$(git rev-parse upstream/master)\`"
+            echo "- fork head: \`$(git rev-parse HEAD)\`"
+            echo "- changed: \`${{ steps.merge.outputs.changed }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
