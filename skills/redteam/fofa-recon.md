@@ -10,7 +10,7 @@ enabled: true
 
 ## 凭据
 - API Key：从环境变量 `FOFA_KEY` 读取（**任何 key 都不要写进仓库**；本技能所有脚本只读环境变量）
-- 接口：`GET https://fofa.info/api/v1/search/all`
+- 接口：`GET ${FOFA_API_BASE:-https://fofa.info}/api/v1/search/all`（镜像站用 FOFA_API_BASE 指向）
 - 参数：`key`、`qbase64`（查询语句的 base64）、`size`、`page`、`fields`
 
 ## 官方限额（fofa.info/vip，2026-09 核对）
@@ -51,7 +51,7 @@ cat > runs/fofa_client.py <<'PY'
 import argparse, base64, hashlib, json, os, sys, time, urllib.error, urllib.parse, urllib.request
 
 KEY = os.environ["FOFA_KEY"]
-API = "https://fofa.info/api/v1/search/all"
+API = (os.environ.get("FOFA_API_BASE") or "https://fofa.info").rstrip("/") + "/api/v1/search/all"
 FIELDS = "host,ip,port,title,domain,server,protocol"
 RETRY_BACKOFF = [5, 15, 45]          # 遇 45012 的退避秒数
 HARD_BUDGET = 30                      # 单次运行最多请求次数
