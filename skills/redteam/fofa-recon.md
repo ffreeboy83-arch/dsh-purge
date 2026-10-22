@@ -12,6 +12,7 @@ enabled: true
 - API Key：从环境变量 `FOFA_KEY` 读取（**任何 key 都不要写进仓库**；本技能所有脚本只读环境变量）
 - 接口：`GET ${FOFA_API_BASE:-https://fofa.info}/api/v1/search/all`（镜像站用 FOFA_API_BASE 指向）
 - 参数：`key`、`qbase64`（查询语句的 base64）、`size`、`page`、`fields`
+- **镜像站注意**：必须带浏览器 UA（WAF 挡 python/curl 默认 UA，回 403）；`FOFA_API_BASE` 指向镜像，`FOFA_KEY` 填镜像卡密
 
 ## 官方限额（fofa.info/vip，2026-09 核对）
 
@@ -62,7 +63,7 @@ def fetch(query, page, size, timeout=30):
         "key": KEY, "qbase64": base64.b64encode(query.encode()).decode(),
         "size": size, "page": page, "fields": FIELDS,
     })
-    req = urllib.request.Request(API + "?" + qs, headers={"User-Agent": "redteam-recon/1.0"})
+    req = urllib.request.Request(API + "?" + qs, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
             return r.status, json.load(r)
